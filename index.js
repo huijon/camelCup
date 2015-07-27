@@ -154,7 +154,7 @@ var hashPath = function(path) {
   //console.log(path.length);
   if (path.length === 5) {
     _.each(path, function (segment) {
-      hash += segment.camel + '' + segment.dice;
+      hash += segment.camel + '' + segment.diceResult;
     });
     return hash;
   }
@@ -179,7 +179,6 @@ var buildPath = function (path, possibilities) {
     var new_path = _.clone(path);
     new_path.push(poss);
     var drop_camel = _.reject(possibilities, function(po) {
-      console.log(po.camel, poss.camel, po.camel === poss.camel);
       return (po.camel === poss.camel);
     });
 
@@ -207,13 +206,14 @@ var buildPaths = function (board) {
   buildPath([], possibilities);
   console.log('Finished building paths: %s\n', PATHS.length);
   var endBoard = calculateOutcomes(board);
-  console.log('Finished calculating outcomes', endBoard);
+  console.log('Finished calculating outcomes');
+  console.log(endBoard);
 };
 
 var calculateEndBoardState = function(board, path){
   console.log('calcing end state: ', path);
   _.each(path, function(segment){
-    board = updateBoard(path.camel_id, diceResult, board);
+    board = updateBoard(segment.camel_id, segment.diceResult, board);
   });
   return board;
 };
@@ -224,7 +224,7 @@ var getPathFromHash = function (path, hash) {
   }
 
   var two_letter_hash = hash.substring(0,2);
-  path.push({ camel: parseInt(two_letter_hash[0], 10), diceResult: parseInt(two_letter_hash[1], 10) });
+  path.push({ camel: parseInt(two_letter_hash[0], 10), diceResult: { face: parseInt(two_letter_hash[1], 10) } });
   return getPathFromHash(path, hash.substring(2));
 };
 
@@ -232,7 +232,13 @@ var getPathFromHash = function (path, hash) {
 var calculateOutcomes = function (initial_board) {
   var outcomes = [];
   //_.each(PATHS, function(PATH) {
-  return calculateEndBoardState(initial_board, getPathFromHash([], PATHS[0]));
+  var board = calculateEndBoardState(initial_board, getPathFromHash([], PATHS[0]));
+  board.positions = _.map(board.positions, function (position){
+    return _.compact(position);
+  });
+  board.camels_moved = _.compact(board.camels_moved);
+  board.camels_in_game = _.compact(board.camels_in_game);
+  return board;
   //});
 };
 
