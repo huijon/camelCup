@@ -48,7 +48,7 @@ var createBoard = function (camels, emptyBoard) {
   // move each camel to get their starting position
   _.each(camels, function(camel){
     var diceResult = rollDice();
-    board = updateBoard(camel, diceResult, board);
+    board = updateBoard(camel.id, diceResult, board);
   });
 
   // clear camels having moved
@@ -57,15 +57,15 @@ var createBoard = function (camels, emptyBoard) {
 };
 
 // camel always gets pushed onto the end of the array
-var updateBoard = function (camel, diceResult, board) {
+var updateBoard = function (camel_id, diceResult, board) {
 
   // check if the camel can move
-  var camelCanMove = !_.find(board.camels_moved, { id: camel.id });
+  var camelCanMove = !_.find(board.camels_moved, { id: camel_id });
   if (!camelCanMove) {
     console.error('cant move this camel again');
     return board;
   }
-  board.camels_moved.push(camel.id);
+  board.camels_moved.push(camel_id);
 
   // extend the board positions if required
   if (board.positions.length <= diceResult.face) {
@@ -75,7 +75,7 @@ var updateBoard = function (camel, diceResult, board) {
   }
 
   // put the camel in the right position
-  board.positions[diceResult.face].push(camel);
+  board.positions[diceResult.face].push(camel_id);
 
   return board;
 };
@@ -88,7 +88,7 @@ var startGame = function () {
   var board = createBoard(camels, emptyBoard(16, camels));
 
   printBoard(board);
-  calculateOutcomes(board);
+  buildPaths(board);
 };
 
 var isCamel = function(stackHeight) {
@@ -162,38 +162,36 @@ var hashPath = function(path) {
   //process.exit(1);
 };
 
-var outcomes = [];
+var PATHS = [];
 
-
-var count = 0;
-var calculateOutcome = function (path, possibilities) {
-  count++;
-
+var buildPath = function (path, possibilities) {
   if (possibilities.length === 0) {
     var hash = hashPath(path);
 
-    if (_.includes(outcomes, hash)){
+    if (_.includes(PATHS, hash)){
       throw Error('duplicate hash: ', hash);
     }
 
-    outcomes.push(hash);
+    PATHS.push(hash);
     return;
   }
   _.each(possibilities, function(poss, idx) {
     var new_path = _.clone(path);
     new_path.push(poss);
     var drop_camel = _.reject(possibilities, function(po) {
+      console.log(po.camel, poss.camel, po.camel === poss.camel);
       return (po.camel === poss.camel);
     });
 
     if (drop_camel.length !== possibilities.length - 3) {
-      throw error('didnt drop camel');
+      console.log('DROPPING ACMELS', drop_camel.length, possibilities.length);
+      throw Error('didnt drop camel');
     }
-    calculateOutcome(new_path, drop_camel);
+    buildPath(new_path, drop_camel);
   });
 };
 
-var calculateOutcomes = function (board) {
+var buildPaths = function (board) {
 
   var possibilities = [];
 
@@ -201,12 +199,43 @@ var calculateOutcomes = function (board) {
 
   _.each(camels_not_moved, function(unmoved_camel) {
     _.each(getDice().possibilities, function(possibleDiceRoll) {
-      possibilities.push({ camel: unmoved_camel, dice: possibleDiceRoll });
+      possibilities.push({ camel: unmoved_camel, diceResult: possibleDiceRoll });
     });
   });
 
-  calculateOutcome([], possibilities);
-  console.log('FINISHED: ', outcomes.length);
+  console.log('\nBuilding paths');
+  buildPath([], possibilities);
+  console.log('Finished building paths: %s\n', PATHS.length);
+  var endBoard = calculateOutcomes(board);
+  console.log('Finished calculating outcomes', endBoard);
 };
+
+var calculateEndBoardState = function(board, path){
+  console.log('calcing end state: ', path);
+  _.each(path, function(segment){
+    board = updateBoard(path.camel_id, diceResult, board);
+  });
+  return board;
+};
+
+var getPathFromHash = function (path, hash) {
+  if (hash.length === 0) {
+    return path;
+  }
+
+  var two_letter_hash = hash.substring(0,2);
+  path.push({ camel: parseInt(two_letter_hash[0], 10), diceResult: parseInt(two_letter_hash[1], 10) });
+  return getPathFromHash(path, hash.substring(2));
+};
+
+// given a board, and all outcomes, figure out rank chances
+var calculateOutcomes = function (initial_board) {
+  var outcomes = [];
+  //_.each(PATHS, function(PATH) {
+  return calculateEndBoardState(initial_board, getPathFromHash([], PATHS[0]));
+  //});
+};
+
+
 
 startGame();
